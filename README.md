@@ -8,5 +8,4 @@ Using Exploratory Data Analysis (EDA), statistical analysis, and data visualizat
 - Statistical Analysis (Descriptive stats, proportion tests)
 
 # How to View the Report
-- Click "Download raw HTML" on PROJECT2.html.
-- Open the file in a web browser to view the full analysis.
+- In RStudio, export PROJECT2.qmd as HTML and view it on your browser
