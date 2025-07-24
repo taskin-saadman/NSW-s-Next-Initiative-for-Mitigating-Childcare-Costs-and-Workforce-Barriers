@@ -1,0 +1,229 @@
+---
+title: "NSW's Next Initiative for Mitigating Childcare Costs and Workforce Barriers"
+author: "SID 541025803"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-location: left
+    code-fold: true
+---
+
+## I. Client Introduction
+
+![](images/Screenshot%202024-10-17%20192829.png){width="418"}
+
+The [Productivity Commission of NSW](https://www.productivity.nsw.gov.au/) works to drive economic growth, enhance productivity, and improve living standards across NSW. Through independent research and analysis, the commission advises the government on reforms and strategies to ensure sustainable development and create a more prosperous NSW.
+
+<br>
+
+## II. Recommendation
+
+The survey responses indicate that access and affordability are 2 significant barriers preventing many families from utilizing formal ECEC services. They directly impact parents'/caregivers' ability to engage in or increase their workforce participation (especially mothers who frequently shoulder the majority of childcare duties).
+
+The government must expand childcare subsidies for lower-income families in a well-planned manner, helping them lower expenses. Additionally, childcare services in rural and suburban areas where access is limited should be increased. These improvements should also be connected to programs that help parents, especially mothers, return to work.
+
+<br>
+
+## III. Evidence
+
+```{r, warning = FALSE, message = FALSE}
+library(tidyverse) # allows to utilize ggplot
+library(plotly)    # allows to make plots interactive
+library(rmarkdown) # allows to utilize paged_table() fucntion
+
+ecec = read.csv('ecec.csv') # reading the dataset
+```
+
+### III.A. Overall Impact on Workforce Participation
+
+**Above 80%** of parents/caregivers who faced accessibility and affordability problems of formal ECEC services also claimed that these hindrances were impacting their ability to participate in the workforce (seeking employment/ working more hours). This is a serious sign that these barriers are directly reducing their potential to contribute to the economy.
+
+```{r, warning = FALSE, message = FALSE}
+# converting "YES"/"NO" to binary values (1/0) for calculating proportions later
+ecec <- ecec %>%
+  mutate(
+    Q3_1 = ifelse(Q3_1 == "YES", 1, 0),
+    Q3_2 = ifelse(Q3_2 == "YES", 1, 0),
+    Q4 = ifelse(Q4 == "Yes", "Workforce Affected", "Workforce Not Affected")
+  )
+
+
+# pivoting longer to have accessibility/affordability issues in one column
+ecec_long <- ecec %>%
+  select(Q3_1, Q3_2, Q4) %>%
+  pivot_longer(cols = c(Q3_1, Q3_2), 
+               names_to = "Issue", 
+               values_to = "Reported") %>%
+  filter(Reported == 1)  # filtering rows where issues were reported
+
+
+# renaming the issues for the x-axis
+ecec_long <- ecec_long %>%
+  mutate(Issue = recode(Issue, 
+                        "Q3_1" = "Access Issues", 
+                        "Q3_2" = "Affordability Issues"))
+
+
+# creating a stacked barplot
+plot <- ggplot(ecec_long, aes(x = Issue, fill = Q4)) +
+  geom_bar(position = "fill", color = 'black') +
+  scale_fill_manual(values = c("Workforce Affected" = "#d6b4fc", "Workforce Not Affected" = "#800080")) +
+  labs(
+    title = "Impact of Accessibility and Affordability Issues on Workforce Participation",
+    y = "Proportion that faced an issue",
+    fill = "Workforce Participation"
+  ) +
+  theme_light()
+
+
+# making the plot interactive
+ggplotly(plot)
+```
+
+<br>
+
+### III.B. The Impact on Mothers
+
+After further analysis, it was found that most of the mothers who were not working reasoned that they preferred to personally take care of their child(ren). The second most common reason, that working is not financially worthwhile, is a strong evidence that the cost of Early Childhood Education and Care (ECEC) is a significant barrier preventing mothers from returning to work.
+
+```{r, warning = FALSE, message = FALSE}
+# filtering out mothers (SQ1 == "Female") and "Not working"
+mothers_not_working <- ecec %>%
+  filter(SQ1 == "Female" & D1 == "Not working (e.g., students OR home duties)")
+
+
+# selecting columns for reasons of not working (D8_1 to D8_11) and pivot longer for visualization
+mothers_reasons <- mothers_not_working %>%
+  select(SQ1, D8_1:D8_11) %>%  # select all D8 columns
+  pivot_longer(cols = starts_with("D8"), names_to = "Reason", values_to = "Response") %>%
+  filter(Response == "YES")  # keep rows where the response is "YES"
+
+
+# creating a mapping of column names to reasons for readability
+mothers_reasons <- mothers_reasons %>%
+  mutate(Reason = recode(Reason,
+                         "D8_1" = "Prefer to care for child(ren) personally",
+                         "D8_2" = "Financially not worthwhile",
+                         "D8_3" = "Own illness or disability",
+                         "D8_4" = "Caring for elderly relatives",
+                         "D8_5" = "Prefer not to work",
+                         "D8_6" = "Studying",
+                         "D8_7" = "Other personal or family responsibilities",
+                         "D8_8" = "Involved in voluntary work",
+                         "D8_9" = "Too difficult finding employment",
+                         "D8_10" = "Other",
+                         "D8_11" = "Prefer not to answer"))
+
+
+# count the number of mothers for each reason
+count_reasons <- mothers_reasons %>%
+  group_by(Reason) %>%
+  summarise(count = n())
+
+
+# creating bar plot
+ggplot(count_reasons, aes(x = reorder(Reason, count), y = count, fill = Reason)) +
+  geom_bar(stat = "identity", show.legend = F, color = 'black') +
+  coord_flip() +  # flipping for better readability
+  labs(title = "Reasons for Not Working Among Mothers", 
+       y = "Number of Mothers", x = "Reason for Not Working") +
+  theme_minimal()
+```
+
+<br>
+
+### III.C. The Impact on Various Income Groups
+
+The lower-income individuals face the maximum affordability issues and workforce barriers compared to higher-income groups. As income increases, both affordability challenges and the impact on workforce participation decrease substantially. (***Click the Right Arrow to see column 3***)
+
+```{r, warning = FALSE, message = FALSE}
+# cleaning the Q4 column to ensure no extra spaces and uniform case
+ecec_clean <- ecec %>%
+  mutate(Q4 = str_trim(Q4))
+
+
+# creating new income bins with $50,000 intervals and filtering out 'Prefer not to answer'
+income_bins <- ecec_clean %>%
+  filter(D13 != "Prefer not to answer") %>%
+  mutate(income_group = case_when(
+    D13 %in% c("$1 - $19,999 per year ($1 - $379 per week)", 
+               "$20,000 - $29,999 per year ($380 - $579 per week)", 
+               "$30,000 - $39,999 per year ($580 - $769 per week)", 
+               "$40,000 - $49,999 per year ($770 - $959 per week)") ~ "$1 - $49,999",
+    D13 %in% c("$50,000 - $59,999 per year ($960 - $1149 per week)", 
+               "$60,000 - $79,999 per year ($1150 - $1529 per week)", 
+               "$80,000 - $99,999 per year ($1530 - $1919 per week)") ~ "$50,000 - $99,999",
+    D13 %in% c("$100,000 - $124,999 per year ($1920 - $2399 per week)", 
+               "$125,000 - $149,999 per year ($2400 - $2879 per week)") ~ "$100,000 - $149,999",
+    D13 %in% c("$150,000 - $199,999 per year ($2880 - $3839 per week)") ~ "$150,000 - $199,999",
+    D13 %in% c("$200,000 - $249,999 per year ($3840 - $4799 per week)", 
+               "$250,000 - $299,999 per year ($4800 - $5759 per week)") ~ "$200,000 - $299,999",
+    D13 == "$300,000 or more per year ($5760 or more per week)" ~ "$300,000 or more"
+  ))
+
+
+# calculating percentage of people who responded "Workforce Affected"
+income_affordability <- income_bins %>%
+  group_by(income_group) %>%
+  summarise(
+    proportion_affordability = paste0(round((sum(Q3_2 == 1, na.rm = TRUE) / n()) * 100, 2), "%"),
+    proportion_workforce = paste0(round((sum(Q4 == "Workforce Affected", na.rm = TRUE) / n()) * 100, 2), "%")
+  )
+
+
+# removing NA rows and rearrange the $50,000 - $99,999 row
+income_affordability <- income_affordability %>%
+  filter(!is.na(income_group)) %>%
+  arrange(factor(income_group, levels = c("$1 - $49,999", "$50,000 - $99,999", 
+                                          "$100,000 - $149,999", "$150,000 - $199,999", 
+                                          "$200,000 - $299,999", "$300,000 or more")))
+
+
+# renaming columns
+colnames(income_affordability) <- c("Income Group", "Percentage Facing Affordability Issues", "Percentage Impact on Workforce Participation")
+
+
+# creating a paged table with only the relevant columns
+paged_table(income_affordability)
+```
+
+### III.D. External Evidence
+
+A report from the University of Melbourne highlights that Australian families spendapproximately **31.1%** of their household income on covering the costs of childcare, which is the fourth highest among OECD countries. This high cost disproportionately affects women, who are more likely to reduce or limit their working hours to manage childcare responsibilities. As a result, **59.1%** of employed mothers of young children work part-time, compared to only **7.9% of fathers**, leading to long-term economic disadvantages such as lower lifetime earnings and insufficient retirement savings.
+
+<br>
+
+## IV. References
+
+1.  Jenkins, K. (2021). *The Gendered Costs of Childcare: A feminist analysis of the effects of Australia’s early childhood education and care system on women’s inequality in the workforce and beyond*. ([link](https://www.unimelb.edu.au/__data/assets/pdf_file/0007/4117192/Kate-J_FoWL-Report.pdf)) The Future of Work Lab.
+
+<br>
+
+## V. Appendix
+
+### V.I. Client Choice
+
+I chose the Productivity Commission of NSW as my client for their role in advising the government on key areas such as building an adaptable workforce and improving economic competitiveness.
+
+### V.II. Statistical Analysis
+
+I used descriptive statistical visualizations because the ECEC data consisted primarily of categorical variables, which didn't allow linear modeling or hypothesis testing. Stacked bar plots helped me effectively highlight affordability issues and workforce participation impacts.
+
+### V.III. Limitations
+
+1.  The data did not include in-depth quantitative variables that could offer a more detailed analysis of the relationships between various factors.
+2.  Participants may not have fully disclosed their financial or workforce challenges, leading to an underestimation of certain impacts.
+3.  The questionnaire lacks open-ended questions, which could have provided richer data.
+
+### V.IV. Declaration on Professional Ethics
+
+The personal identity of each survey participant has been kept private, and care has been taken to ensure that no community was disrespected in this report.
+
+### V.V. Acknowledgements
+
+1.  Used ChatGPT for filtering, organizing, and rearranging the data.
+2.  Learnt how to make interactive plots and paged table from YouTube.
+3.  Used R Studio's built-in spelling checker tool.
+4.  Used Google Docs' built-in grammar checker tool.
+5.  Understood the agendas of the productivity commission through *A Guide to the Productivity Commission* ([link](https://www.pc.gov.au/about/productivity-commission-quick-guide.pdf))
